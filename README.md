@@ -5,8 +5,11 @@ back-in-stock notifier. It polls one product page and sends a push notification
 when that product becomes purchasable. Nothing else.
 
 The profile is served at
-**<https://chajulal-creator.github.io/ucp-agent-profile/agent.json>** and is
-what this client passes as `meta.ucp-agent.profile` on UCP requests.
+
+**<https://cdn.jsdelivr.net/gh/chajulal-creator/ucp-agent-profile@main/agent.json>**
+
+and that is what this client passes as `meta.ucp-agent.profile` on UCP
+requests. Not the GitHub Pages URL — see below.
 
 ## What it declares, and what it deliberately does not
 
@@ -34,8 +37,30 @@ requires a hosted agent profile. This is that file.
 
 ## Hosting requirements it has to meet
 
-Per the UCP spec, a profile must be served over HTTPS, with no redirect, and
-with `Cache-Control: public` and `max-age` of at least 60 seconds. GitHub Pages
-serves this file as `application/json` with a public `max-age`, which is why it
-is published here rather than from a raw file URL (`raw.githubusercontent.com`
-serves `text/plain`, which the validator rejects).
+Per the UCP spec a profile must be served over HTTPS, with no redirect, and
+with `Cache-Control: public` and `max-age` of at least 60 seconds. Measured,
+for this exact file:
+
+| host | status | content-type | cache-control | accepted? |
+|---|---|---|---|---|
+| `raw.githubusercontent.com` | 200 | `text/plain` | — | no, wrong type |
+| `chajulal-creator.github.io` (Pages) | 200 | `application/json` | `max-age=600` | **no** |
+| `cdn.jsdelivr.net/gh/...@main` | 200 | `application/json` | `public, max-age=604800` | **yes** |
+
+**GitHub Pages cannot host a UCP agent profile.** It sends `max-age=600`
+without the `public` directive, and Pages does not let you set response
+headers, so there is no fix on that side. The validator's verdict is specific
+and worth recording for anyone else hitting it:
+
+```
+-32001 profile_malformed
+"Unable to fetch agent profile: Invalid cache control"
+```
+
+jsDelivr serves the same file out of this repo with `public, max-age=604800`
+and the right content type, so the profile lives behind that CDN. Pages stays
+enabled only because it costs nothing; nothing points at it.
+
+One consequence: jsDelivr caches the `@main` ref hard. An edit here can take
+a while to reach the CDN, so treat this file as slow-moving, or purge it.
+
